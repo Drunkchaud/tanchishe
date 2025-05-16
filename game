@@ -1,0 +1,413 @@
+#define _CRT_SECURE_NO_WARNINGS
+#include <stdio.h>
+#include <stdlib.h>
+#include <windows.h>
+#include <conio.h>
+#include <time.h>
+#include <stdbool.h>
+#define ROW 32;
+#define COL 32;
+#define WALL 0;
+#define KONG 1;
+#define FOOD 2;
+#define HEAD 3;
+#define BODY 4;
+#define up 5;
+#define down 6;
+#define left 7;
+#define right 8;
+struct Snake
+{
+    int len;
+    int x;
+    int y;
+}snake;
+struct Body
+{
+    int x;
+    int y;
+}body[32 * 32];
+void CursorJump(int x, int y);
+void Cursorhide();
+void printsnake();
+void welcomtogame();
+void creatMap();
+void initsnake();
+void drawsnake();
+void creatfood();
+void scoreandtips();
+void displaymaxscore();
+void explaination();
+void fileout();
+void snakemove();
+bool stopgame();
+bool bitself();
+bool cantcrosswall();
+void losepage();
+void speedup();
+void speeddown();
+int face[32][32], maxscore = 0, score = 0, dir = 7, sleeptime = 400,award=1;
+char choice;
+HANDLE hConsole;
+int main() {
+    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+    srand((unsigned)time(NULL));
+    system("mode con cols=80 lines=40");
+    system("title 贪吃蛇游戏");
+    Cursorhide();
+    fileout();
+    welcomtogame();
+    while (choice != '1') {
+        welcomtogame();
+    }
+    while (1) {
+        scoreandtips();
+        snakemove();
+        if (stopgame()) {
+            losepage();
+            char c = getchar();
+            while (getchar() != '\n');
+            if (c == '1') {
+                score = 0;
+                dir = 7;
+                award = 1;
+                sleeptime = 400;
+                creatMap();
+                initsnake();
+                creatfood();
+            }
+            else {
+                exit(0);
+            }
+        }
+        Sleep(sleeptime);
+    }
+}
+void CursorJump(int x, int y)
+{
+    COORD pos;
+    pos.X = x;
+    pos.Y = y;
+    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleCursorPosition(handle, pos);
+}
+void Cursorhide()
+{
+    CONSOLE_CURSOR_INFO curInfo;
+    curInfo.dwSize = 1;
+    curInfo.bVisible = FALSE;
+    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    SetConsoleCursorInfo(handle, &curInfo);
+}
+void printsnake() {
+    SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+    printf("\n");
+    printf("        _________         _________                 \n");
+    printf("       /         \\       /         \\                \n");
+    printf("      /  /~~~~~\\  \\     /  /~~~~~\\  \\               \n");
+    printf("      |  |     |  |     |  |     |  |               \n");
+    printf("      |  |     |  |     |  |     |  |               \n");
+    printf("      |  |     |  |     |  |     |  |         /      \n");
+    printf("      |  |     |  |     |  |     |  |       //      \n");
+    printf("     (o  o)    \\  \\_____/  /     \\  \\_____/ /       \n");
+    printf("      \\__/      \\         /       \\        /        \n");
+    printf("        |        ~~~~~~~~~         ~~~~~~~~         \n");
+    printf("        ^                                              \n");
+    SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+}
+void welcomtogame()
+{
+        system("cls");
+        printsnake();
+        printf("\n\n");
+        printf("\t1.进入游戏\n");
+        printf("\t2.游戏说明\n");
+        printf("\t3.显示最高分\n");
+        printf("\t4.退出游戏\n");
+        printf("请输入你的选择(1-4):");
+        choice = getchar();
+        while (getchar() != '\n');
+        switch (choice) {
+        case '1':
+            creatMap();
+            initsnake();
+            creatfood();
+            return;
+            break;
+        case '2':
+            explaination();
+            break;
+        case '3':
+            displaymaxscore();
+            break;
+        case '4':
+            exit(0);
+            break;
+        }
+}
+void creatMap() {
+    system("cls");
+    int i, j;
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 6);
+    for (i = 0; i < 32; i++) {
+        for (j = 0; j <32; j++) {
+            if (j == 0||j==31) {
+                face[i][j] = 0;
+                CursorJump(2 * j, i);
+                printf("■");
+            }
+            else if (i == 0 || i == 31) {
+                face[i][j] = 0;
+                CursorJump(2 * j, i);
+                printf("■");
+            }
+            else {
+                face[i][j] = 1;
+            }
+        }
+    }
+    SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), 7);
+}
+void initsnake()
+{
+    snake.len = 2;
+    snake.x = 25;
+    snake.y = 15;
+    body[0].x = snake.x + 1; body[0].y = snake.y;
+    body[1].x = snake.x + 2; body[1].y = snake.y;
+    face[snake.y][snake.x] = 3; face[snake.y][snake.x + 1] = 4;
+    face[snake.y][snake.x + 2] = 4;
+    drawsnake();
+}
+void drawsnake() {
+    CursorJump(2*snake.x, snake.y);
+    printf("■");
+    for (int i = 0; i < snake.len; i++) {
+        CursorJump(2*body[i].x, body[i].y);
+        printf("□");
+    }
+}
+void creatfood() {
+    int i, j;
+    do {
+        i = 1 + rand() % 29;
+        j = 1 + rand() % 29;
+    } while (face[j][i] != 1);
+    face[j][i] = 2;
+    CursorJump(2*i, j);
+    printf("●");
+}
+void explaination()
+{
+    system("cls");
+    printf("\n\n");
+    printf("\t\t\t\t\t\t游戏说明\n");
+    printf("游戏目标:");
+    printf("通过控制贪吃蛇，使其不断吃掉地图上随机出现的食物，从而让蛇的身体不断变长，同时尽量避免蛇头撞到墙壁或者自己的身体，努力获得更高的分数。\n");
+    printf("游戏规则:\n");
+    printf("1.蛇的移动：游戏开始后，蛇会自动按照初始方向（通常是向左）前进。玩家可以通过键盘的上下左右方向键来控制蛇的前进方向，但蛇头不能直接转向与当前前进方向相反的方向。例如，蛇当前是向上移动的，那么玩家可以控制它向左或向右转，但不能直接向下转。\n");
+    printf("2.食物的出现与获取：地图上会随机出现食物，当蛇头移动到食物所在的位置时，食物就会被蛇吃掉，蛇的身体会增加一节，同时玩家的得分也会相应增加。食物的出现位置是随机的，但不会出现在蛇的身体上或者地图的边界线上。\n");
+    printf("3.游戏结束条件：如果蛇头撞到了地图的边界（即墙壁）或者撞到了自己身体的任何一部分，游戏就会结束。此外，玩家在游戏中按下ESC键也会导致游戏结束。\n");
+    printf("4.得分规则：每吃掉一个食物，玩家会获得一定的分数。在正常情况下，吃掉一个食物得1分。但如果蛇在吃掉食物后触发了加速状态（如通过按F1键或者连续吃到食物），则每次吃掉食物会得2分。相反，如果按F2键使蛇减速，每次吃掉食物则得1分。需要注意的是，当时间间隔sleeptime为320时，每次吃到食物的得分会变为2，以防止得分出现异常；而当时间间隔sleeptime为350时，每次吃到食物的得分固定为1，以确保得分始终有效。\n");
+    printf("5.速度变化：玩家可以通过按F1键使蛇加速前进，此时蛇的移动时间间隔sleeptime会减10，得分也会相应增加；按F2键则会使蛇减速前进，时间间隔sleeptime会加10，得分会减少。不过，速度的变化不会影响蛇的基本移动逻辑和游戏规则。\n");
+    Sleep(5000);
+}
+void scoreandtips()
+{
+    COORD pos = { 65, 5 };
+    SetConsoleCursorPosition(hConsole, pos);
+    SetConsoleTextAttribute(hConsole, FOREGROUND_BLUE | FOREGROUND_INTENSITY);
+    printf("当前得分: %d", score);
+    pos.Y += 2;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("最高得分: %d", maxscore);
+    pos.Y += 2;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("操作说明:");
+    pos.Y += 1;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("方向键控制移动");
+    pos.Y += 1;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("F1 加速");
+    pos.Y += 1;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("F2 减速");
+    pos.Y += 1;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("ESC 退出游戏");
+    SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+}
+void displaymaxscore() {
+    COORD pos = { 65, 5 };
+    system("cls");
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("最高得分: %d", maxscore);
+    pos.Y += 2;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("操作说明:");
+    pos.Y += 1;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("方向键控制移动");
+    pos.Y += 1;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("F1 加速");
+    pos.Y += 1;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("F2 减速");
+    pos.Y += 1;
+    SetConsoleCursorPosition(hConsole, pos);
+    printf("ESC 退出游戏");
+    SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+    Sleep(5000);
+}
+void fileout() {
+    FILE* f =
+        fopen("save.txt", "r");
+    if (f == NULL) {
+        maxscore = 0;
+    }
+    else {
+        fscanf(f, "%d", &maxscore);
+        fclose(f);
+    }
+}
+void snakemove() {
+    CursorJump(2*snake.x, snake.y);
+    printf(" ");
+    for (int i = 0; i < snake.len; i++) {
+        CursorJump(2*body[i].x, body[i].y);
+        printf(" ");
+    }
+    if (_kbhit()) {
+        int c = _getch();
+        if (c == 0 || c == 224) {
+            int direction = _getch();
+            switch (direction) {
+            case 72:
+                if (dir != 6)dir = 5;
+                break;
+            case 80:
+                if (dir != 5)dir = 6;
+                break;
+            case 75:
+                if (dir != 8)dir = 7;
+                break;
+            case 77:
+                if (dir != 7)dir = 8;
+                break;
+            case 59:
+                speedup();
+                break;
+            case 60:
+                speeddown();
+                break;
+            }
+        }
+        else if (c == 27) {
+            exit(0);
+        }
+    }
+    switch (dir) {
+    case 5:
+        snake.y -= 1;
+        break;
+    case 6:
+        snake.y += 1;
+        break;
+    case 7:
+        snake.x -= 1;
+        break;
+    case 8:
+        snake.x += 1;
+        break;
+    }
+}
+bool stopgame() {
+    if (bitself() || cantcrosswall()) {
+        return true;
+    }
+    else {
+        if (face[snake.y][snake.x] == 2) {
+            snake.len += 1;
+            score += award;
+            speedup();
+            if (score > maxscore)maxscore = score;
+            creatfood();
+        }
+        else {
+            face[body[snake.len - 1].y][body[snake.len - 1].x] = 1;
+            CursorJump(2*body[snake.len - 1].x, body[snake.len - 1].y);
+            printf(" ");
+        }
+        for (int i = snake.len - 1; i >= 1; i--) {
+            body[i].x = body[i - 1].x; body[i].y = body[i - 1].y;
+        }
+        face[snake.y][snake.x] = 3;
+        switch (dir) {
+        case 5:
+            body[0].x = snake.x; body[0].y = snake.y + 1;
+            break;
+        case 6:
+            body[0].x = snake.x; body[0].y = snake.y - 1;
+            break;
+        case 7:
+            body[0].x = snake.x + 1; body[0].y = snake.y;
+            break;
+        case 8:
+            body[0].x = snake.x - 1; body[0].y = snake.y;
+            break;
+        }
+        face[body[0].y][body[0].x] = 4;
+        drawsnake();
+        return false;
+    }
+}
+bool bitself() {
+    if (face[snake.y][snake.x] == 4) {
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+bool cantcrosswall() {
+    return(snake.x <= 0 || snake.x >= 31 || snake.y <= 0 || snake.y >= 31);
+}
+void losepage() {
+    system("cls");
+    if (score < maxscore) {
+        printf("\n\n\n\n");
+        printf("\t\t\t\t最高分是%d\n", maxscore);
+        printf("\t\t\t\t继续努力吧，你离最高分还差：%d\n", maxscore - score);
+    }
+    else {
+        printf("\n\n\n\n");
+        printf("\t\t\t\t最高分是%d\n", maxscore);
+        printf("\t\t\t\t创纪录啦！最高分被你刷新啦，真棒！！！\n");
+        FILE* f = fopen("save.txt", "w");
+        fprintf(f, "%d", score);
+        fclose(f);
+    }
+    printf("\t\t\t\t你可以进行以下选择：\n\t\t\t\t1.重玩\n\t\t\t\t2.退出游戏\n");
+    printf("\t\t\t\t你的选择是:");
+}
+void speedup()
+{
+    if (sleeptime > 100) {
+        sleeptime -= 10;
+        award += 1;
+    }
+    else {
+        sleeptime = 100;
+    }
+}
+void speeddown() {
+    if (sleeptime<400) {
+        sleeptime += 10;
+        award -= 1;
+    }
+    else {
+        sleeptime = 400;
+    }
+}
